@@ -1,5 +1,15 @@
 ﻿
-// Import Controller
-import "./controller.js";
+import { FoodController } from "./controller.js";
 
-console.log("Food Ordering App started!");
+import "./concepts.js";
+
+
+// Start FoodieHub application
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    const app = new FoodController();
+
+    console.log("FoodieHub started successfully!");
+
+});

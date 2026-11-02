@@ -1,88 +1,257 @@
 ﻿
-// Import Model
-import { foods, createCart } from "./model.js";
+import {
+    foods,
+    createCart,
+    Customer,
+    PremiumCustomer,
+    Order,
+    validateCustomerName,
+    submitOrder
+} from "./model.js";
 
-// Import View
-import { displayFoods, displayCart } from "./view.js";
-
-// Create cart
-const cart = createCart();
-
-// Get HTML elements
-const foodList = document.getElementById("foodList");
-const cartList = document.getElementById("cartList");
-const searchFood = document.getElementById("searchFood");
-const totalAmount = document.getElementById("totalAmount");
-const placeOrderButton = document.getElementById("placeOrder");
-const orderMessage = document.getElementById("orderMessage");
-
-
-// Display food menu
-function loadFoods(foodData) {
-    displayFoods(foodData, foodList, addToCart);
-}
+import {
+    displayFoods,
+    displayCart,
+    displayBill
+} from "./view.js";
 
 
-// Add food to cart
-function addToCart(foodId) {
-    cart.addItem(foodId);
-    updateCart();
-}
+// =====================================
+// CONTROLLER CLASS
+// =====================================
+
+export class FoodController {
+
+    constructor() {
+
+        // this refers to the current controller object
+        this.cart = createCart();
+
+        this.foodList = document.getElementById("foodList");
+        this.cartList = document.getElementById("cartList");
+
+        this.searchFood = document.getElementById("searchFood");
+
+        this.customerName = document.getElementById("customerName");
+        this.customerType = document.getElementById("customerType");
+
+        this.placeOrderButton =
+            document.getElementById("placeOrder");
+
+        this.orderMessage =
+            document.getElementById("orderMessage");
 
 
-// Update cart display
-function updateCart() {
-    const items = cart.getItems();
+        // BINDING
+        // Preserve the controller's this context.
 
-    displayCart(
-        items,
-        cart.getTotal(),
-        cartList,
-        totalAmount
-    );
+        this.handleSearch = this.handleSearch.bind(this);
 
-    // Handle Remove buttons
-    const removeButtons = cartList.querySelectorAll(".remove-btn");
-
-    removeButtons.forEach((button, index) => {
-        button.addEventListener("click", () => {
-            cart.removeItem(items[index].id);
-            updateCart();
-        });
-    });
-}
+        this.handleCheckout = this.handleCheckout.bind(this);
 
 
-// Search food
-searchFood.addEventListener("input", function () {
-    const searchText = this.value.toLowerCase();
+        // Event listeners
 
-    const filteredFoods = foods.filter(food =>
-        food.name.toLowerCase().includes(searchText)
-    );
+        this.searchFood.addEventListener(
+            "input",
+            this.handleSearch
+        );
 
-    loadFoods(filteredFoods);
-});
+        this.placeOrderButton.addEventListener(
+            "click",
+            this.handleCheckout
+        );
 
 
-// Place order
-placeOrderButton.addEventListener("click", function () {
-    if (cart.getItems().length === 0) {
-        orderMessage.textContent = "Your cart is empty!";
-        return;
+        this.loadFoods(foods);
+
+        this.updateCart();
+
     }
 
-    orderMessage.textContent =
-        `Order placed successfully! Total: ₹${cart.getTotal()}`;
 
-    cart.getItems().forEach(item => {
-        cart.removeItem(item.id);
-    });
+    // =====================================
+    // DISPLAY FOOD MENU
+    // =====================================
 
-    updateCart();
-});
+    loadFoods(foodData) {
+
+        displayFoods(
+            foodData,
+            this.foodList,
+
+            // Passing function as argument
+            this.handleAddToCart.bind(this)
+        );
+
+    }
 
 
-// Initial application display
-loadFoods(foods);
-updateCart();
+    // =====================================
+    // ADD FOOD TO CART
+    // =====================================
+
+    handleAddToCart(foodId) {
+
+        this.cart.addItem(foodId);
+
+        this.updateCart();
+
+        this.orderMessage.textContent = "";
+
+    }
+
+
+    // =====================================
+    // REMOVE FOOD FROM CART
+    // =====================================
+
+    handleRemoveFromCart(foodId) {
+
+        this.cart.removeItem(foodId);
+
+        this.updateCart();
+
+    }
+
+
+    // =====================================
+    // UPDATE CART
+    // =====================================
+
+    updateCart() {
+
+        const items = this.cart.getItems();
+
+        displayCart(
+            items,
+            this.cartList,
+            this.handleRemoveFromCart.bind(this)
+        );
+
+        this.updateBill();
+
+    }
+
+
+    // =====================================
+    // UPDATE BILL
+    // =====================================
+
+    updateBill() {
+
+        const items = this.cart.getItems();
+
+        const customer = this.getCustomer();
+
+        const order = new Order(items, customer);
+
+        displayBill(
+            order.getSubtotal(),
+            order.getDiscount(),
+            order.getFinalAmount()
+        );
+
+    }
+
+
+    // =====================================
+    // CUSTOMER OBJECT
+    // =====================================
+
+    getCustomer() {
+
+        const name = this.customerName.value;
+
+        if (this.customerType.value === "premium") {
+
+            return new PremiumCustomer(name);
+
+        }
+
+        return new Customer(name);
+
+    }
+
+
+    // =====================================
+    // SEARCH FOOD
+    // =====================================
+
+    handleSearch() {
+
+        // this refers to FoodController
+        const searchText =
+            this.searchFood.value.toLowerCase();
+
+        const filteredFoods = foods.filter(food =>
+            food.name.toLowerCase().includes(searchText)
+        );
+
+        this.loadFoods(filteredFoods);
+
+    }
+
+
+    // =====================================
+    // CHECKOUT
+    // =====================================
+
+    handleCheckout() {
+
+        const name = this.customerName.value;
+
+        if (!validateCustomerName(name)) {
+
+            this.orderMessage.textContent =
+                "Please enter a valid customer name.";
+
+            return;
+
+        }
+
+
+        const customer = this.getCustomer();
+
+        const order = new Order(
+            this.cart.getItems(),
+            customer
+        );
+
+
+        // Passing success and failure functions
+        // as arguments to submitOrder().
+
+        submitOrder(
+
+            order,
+
+            // Success callback
+            (confirmedOrder) => {
+
+                this.orderMessage.textContent =
+                    `Order placed successfully! 
+                    Customer: ${confirmedOrder.customer.name}.
+                    Total: ₹${confirmedOrder.getFinalAmount().toFixed(2)}`;
+
+                this.cart.getItems().forEach(item => {
+                    this.cart.removeItem(item.id);
+                });
+
+                this.updateCart();
+
+            },
+
+
+            // Failure callback
+            (message) => {
+
+                this.orderMessage.textContent = message;
+
+            }
+
+        );
+
+    }
+
+}

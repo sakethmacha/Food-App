@@ -1,21 +1,160 @@
 ﻿
-// Food menu data
+// =====================================
+// CLASS CONCEPTS AND OBJECTS
+// =====================================
+
+export class Food {
+
+    constructor(id, name, price, icon) {
+        this.id = id;
+        this.name = name;
+        this.price = price;
+        this.icon = icon;
+    }
+
+    getDetails() {
+        return `${this.name} - ₹${this.price}`;
+    }
+}
+
+
+// Food objects
 export const foods = [
-    { id: 1, name: "Pizza", price: 250 },
-    { id: 2, name: "Burger", price: 120 },
-    { id: 3, name: "Biryani", price: 180 },
-    { id: 4, name: "Sandwich", price: 100 },
-    { id: 5, name: "Pasta", price: 160 }
+    new Food(1, "Pizza", 250, "🍕"),
+    new Food(2, "Burger", 120, "🍔"),
+    new Food(3, "Biryani", 180, "🍛"),
+    new Food(4, "Sandwich", 100, "🥪"),
+    new Food(5, "Pasta", 160, "🍝")
 ];
 
-// Cart logic
+
+// =====================================
+// INHERITANCE AND PROTOTYPAL CHAIN
+// =====================================
+
+export class Customer {
+
+    constructor(name) {
+        this.name = name;
+    }
+
+    getDiscountRate() {
+        return 5;
+    }
+
+    getCustomerType() {
+        return "Regular Customer";
+    }
+}
+
+
+// PremiumCustomer inherits from Customer
+export class PremiumCustomer extends Customer {
+
+    constructor(name) {
+        super(name);
+    }
+
+    getDiscountRate() {
+        return 10;
+    }
+
+    getCustomerType() {
+        return "Premium Customer";
+    }
+}
+
+
+// =====================================
+// CURRYING
+// =====================================
+
+// Configure discount first, then provide price.
+
+export function calculateDiscount(discountPercentage) {
+
+    return function (price) {
+
+        return price * discountPercentage / 100;
+
+    };
+
+}
+
+
+// =====================================
+// MEMOIZATION
+// =====================================
+
+// Store previous calculation results.
+
+export function memoize(callback) {
+
+    const cache = {};
+
+    return function (...args) {
+
+        const key = JSON.stringify(args);
+
+        if (Object.hasOwn(cache, key)) {
+            console.log("Returning cached result");
+            return cache[key];
+        }
+
+        console.log("Calculating new result");
+
+        const result = callback(...args);
+
+        cache[key] = result;
+
+        return result;
+    };
+}
+
+
+// Memoized bill calculation
+export const calculateTotal = memoize(function (items) {
+
+    return items.reduce((total, item) => {
+        return total + item.price * item.quantity;
+    }, 0);
+
+});
+
+
+// =====================================
+// RETURNING FUNCTIONS FROM FUNCTIONS
+// =====================================
+
+// Create reusable validation functions.
+
+export function createValidator(validationRule) {
+
+    return function (value) {
+
+        return validationRule(value);
+
+    };
+
+}
+
+
+// Customer name validation
+export const validateCustomerName = createValidator(
+    name => name.trim().length >= 2
+);
+
+
+// =====================================
+// CART USING CLOSURE
+// =====================================
+
 export function createCart() {
 
-    // Private cart data
     let cartItems = [];
 
-    // Add food to cart
     function addItem(foodId) {
+
         const existingItem = cartItems.find(
             item => item.id === foodId
         );
@@ -30,35 +169,40 @@ export function createCart() {
         }
     }
 
-    // Remove food from cart
+
     function removeItem(foodId) {
+
         cartItems = cartItems.filter(
             item => item.id !== foodId
         );
+
     }
 
-    // Get cart details
+
     function getItems() {
+
         return cartItems.map(item => {
+
             const food = foods.find(
                 food => food.id === item.id
             );
 
             return {
                 ...food,
-                quantity: item.quantity,
-                itemTotal: food.price * item.quantity
+                quantity: item.quantity
             };
+
         });
+
     }
 
-    // Calculate total
+
     function getTotal() {
-        return getItems().reduce(
-            (total, item) => total + item.itemTotal,
-            0
-        );
+
+        return calculateTotal(getItems());
+
     }
+
 
     return {
         addItem,
@@ -66,4 +210,61 @@ export function createCart() {
         getItems,
         getTotal
     };
+
+}
+
+
+// =====================================
+// ORDER CLASS
+// =====================================
+
+export class Order {
+
+    constructor(items, customer) {
+
+        this.items = items;
+        this.customer = customer;
+
+    }
+
+    getSubtotal() {
+
+        return calculateTotal(this.items);
+
+    }
+
+    getDiscount() {
+
+        const discountCalculator =
+            calculateDiscount(this.customer.getDiscountRate());
+
+        return discountCalculator(this.getSubtotal());
+
+    }
+
+    getFinalAmount() {
+
+        return this.getSubtotal() - this.getDiscount();
+
+    }
+
+}
+
+
+// =====================================
+// PASSING FUNCTIONS AS ARGUMENTS
+// =====================================
+
+export function submitOrder(order, onSuccess, onFailure) {
+
+    if (order.items.length === 0) {
+
+        onFailure("Your cart is empty!");
+
+        return;
+
+    }
+
+    onSuccess(order);
+
 }
